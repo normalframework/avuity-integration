@@ -10,7 +10,7 @@
     "deploy": "npx applications-sdk deploy"
   },
   "dependencies": {
-    "@normalframework/applications-sdk": "~/git/normal/nf/js-sdk/sdk/normalframework-applications-sdk-0.1.7.tgz",
+    "@normalframework/applications-sdk": "0.1.8",
     "typescript": "^5.0.2",
     "uuid": "^9.0.0"
   },

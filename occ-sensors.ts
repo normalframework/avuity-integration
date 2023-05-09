@@ -7,11 +7,13 @@ import {
 } from "@normalframework/applications-sdk";
 import { v4 as uuid } from "uuid";
 
+let entityTypeInitialized = false;
+
 const avuity: InvokeFn = async (points, sdk) => {
   const avuityData = await getAvuityData();
   try {
     await ensureEntityTypeCreated(sdk.http);
-    await ensureSensorsCreatedAndTagged(sdk.http, avuityData, sdk.event);
+    await ensureSensorsCreatedAndTagged(sdk.http, avuityData);
     await updateValues(sdk.http, avuityData);
     return InvokeSuccess("All done");
   } catch (e: any) {
@@ -23,11 +25,12 @@ const avuity: InvokeFn = async (points, sdk) => {
 module.exports = avuity;
 
 const ensureEntityTypeCreated = async (axios: AxiosInstance) => {
+  if (entityTypeInitialized) return;
   try {
     const res = await axios.post("/api/v1/ontology/types", {
       entityType: {
         id: "OCCS#occs-1",
-        name: "OCCS (2)",
+        name: "Occupancy Sensor",
         className: "OCCS",
         description:
           "Any device that senses or detects the occupancy information within a space.",
@@ -111,20 +114,18 @@ const ensureEntityTypeCreated = async (axios: AxiosInstance) => {
       },
     });
   } catch (e: any) {
-    console.log(e.response);
+    // 409 expected if we have already created the entity type
     if (e.response.status !== 409) {
       throw e;
     }
   }
+  entityTypeInitialized = true;
 };
 
 const ensureSensorsCreatedAndTagged = async (
   axios: AxiosInstance,
-  avuityResponse: any,
-  event: (msg: string) => void
+  avuityResponse: any
 ) => {
-  // event("tagging sensors");
-
   let existingSensors = await getBacnetSensors(axios);
 
   for await (const key of Object.keys(avuityResponse.items)) {
@@ -134,12 +135,11 @@ const ensureSensorsCreatedAndTagged = async (
         (s: any) => s.attrs.prop_object_name === current.areaName
       )
     ) {
-      // event("did not find" + current.areaName);
-      await createLocalBacnetObject(axios, current);
+      const localBacnetObject = await createLocalBacnetObject(axios, current);
       await createEquipForSensor(axios, current);
-      await tagLocalBacnetObject(axios, current);
+      await tagLocalBacnetObject(axios, current, localBacnetObject.uuid);
     } else {
-      console.log("!!! No update needed for ", current.areaName);
+      console.log(`Local Objecty for: ${current.areaName} already created`);
     }
   }
 };
@@ -180,7 +180,7 @@ const createEquipForSensor = async (normalHttp: AxiosInstance, sensor: any) => {
         uuid: uuid(),
         layer: "model",
         attrs: {
-          type: "OCCS (2)",
+          type: "Occupancy Sensor",
           dataLayer: "hpl:bacnet:1",
           id: sensor.areaName,
           markers: "device,environment,occupancy,sensor",
@@ -191,18 +191,22 @@ const createEquipForSensor = async (normalHttp: AxiosInstance, sensor: any) => {
   });
 };
 
-const tagLocalBacnetObject = async (normalHttp: AxiosInstance, sensor: any) => {
-  const sensorsOnBacnet = await getBacnetSensors(normalHttp);
-  const bacnetSensor = sensorsOnBacnet.find(
-    (e: any) => e.attrs.prop_object_name === sensor.areaName
-  );
+const tagLocalBacnetObject = async (
+  normalHttp: AxiosInstance,
+  sensor: any,
+  uuid: string
+) => {
+  // const sensorsOnBacnet = await getBacnetSensors(normalHttp);
+  // const bacnetSensor = sensorsOnBacnet.find(
+  //   (e: any) => e.attrs.prop_object_name === sensor.areaName
+  // );
 
-  if (!bacnetSensor) return;
+  // if (!bacnetSensor) return;
 
   await normalHttp.post("/api/v1/point/points", {
     points: [
       {
-        uuid: bacnetSensor.uuid,
+        uuid,
         layer: "model",
         attrs: {
           equipRef: sensor.areaName,
@@ -214,6 +218,7 @@ const tagLocalBacnetObject = async (normalHttp: AxiosInstance, sensor: any) => {
 };
 
 const getBacnetSensors = async (normalHttp: AxiosInstance) => {
+  // TODO: this is not a reliable way to get this data
   const { data } = await normalHttp.get(
     "/api/v1/point/points?layer=hpl:bacnet:1&responseFormat=0&pageOffset=0&pageSize=100&structuredQuery.field.property=device_prop_object_name&structuredQuery.field.text=NF"
   );
@@ -223,8 +228,14 @@ const getBacnetSensors = async (normalHttp: AxiosInstance) => {
 const createLocalBacnetObject = async (
   normalHttp: AxiosInstance,
   area: any
-) => {
-  await normalHttp.post("/api/v1/bacnet/local", {
+): Promise<{
+  objectId: {
+    objectType: string;
+    instance: number;
+  };
+  uuid: string;
+}> => {
+  const response = await normalHttp.post("/api/v1/bacnet/local", {
     objectId: {
       instance: 0,
       objectType: "OBJECT_ANALOG_VALUE",
@@ -256,173 +267,12 @@ const createLocalBacnetObject = async (
       },
     ],
   });
+  return response.data;
 };
 
 const getAvuityData = async () => {
-  console.log("######## Starting to fetch avuity data");
   const { data } = await axios.get(
     "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6"
   );
-  console.log("######## Done Fetching avuity data");
   return data;
-  // https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6
 };
-
-// const avuityResponse: any = {
-//   statusCode: 200,
-//   message: "Success",
-//   items: {
-//     Andrew: {
-//       occupancy: 0,
-//       areaName: "Andrew",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "Brad M": {
-//       occupancy: 0,
-//       areaName: "Brad M",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "Brad's Office": {
-//       occupancy: 0,
-//       areaName: "Brad's Office",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     David: {
-//       occupancy: 1,
-//       areaName: "David",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     Ed: {
-//       occupancy: 1,
-//       areaName: "Ed",
-//       capacity: 2,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "Jay's Office": {
-//       occupancy: 1,
-//       areaName: "Jay's Office",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     Jenny: {
-//       occupancy: 0,
-//       areaName: "Jenny",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     Kitchen: {
-//       occupancy: 1,
-//       areaName: "Kitchen",
-//       capacity: 4,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     Lindsey: {
-//       occupancy: 0,
-//       areaName: "Lindsey",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "Mini Lab": {
-//       occupancy: 0,
-//       areaName: "Mini Lab",
-//       capacity: 2,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     Nicole: {
-//       occupancy: 1,
-//       areaName: "Nicole",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "Pod 2": {
-//       occupancy: 0,
-//       areaName: "Pod 2",
-//       capacity: 3,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "Pod 3": {
-//       occupancy: 0,
-//       areaName: "Pod 3",
-//       capacity: 4,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "Rachel ": {
-//       occupancy: 1,
-//       areaName: "Rachel ",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     Sayuz: {
-//       occupancy: 0,
-//       areaName: "Sayuz",
-//       capacity: 1,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "The Bridge": {
-//       occupancy: 0,
-//       areaName: "The Bridge",
-//       capacity: 2,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "The Death Star": {
-//       occupancy: 0,
-//       areaName: "The Death Star",
-//       capacity: 12,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "The Garage": {
-//       occupancy: 0,
-//       areaName: "The Garage",
-//       capacity: 12,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//     "The Thunderdome": {
-//       occupancy: 0,
-//       areaName: "The Thunderdome",
-//       capacity: 8,
-//       floorName: "Suite 510",
-//       buildingName: "Avuity Office ",
-//       locationName: "Avuity Office",
-//     },
-//   },
-// };
