@@ -1,7 +1,5 @@
 {
-  "config": {
-    "id": "avuity-integration",
-    "name": "Avuity Integration",
-    "description": "Avuity Integration"
-  }
+  "id": "avuity-integration",
+  "name": "Avuity Integration",
+  "description": "Avuity Integration"
 }
