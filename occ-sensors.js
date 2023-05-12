@@ -19,6 +19,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const applications_sdk_1 = require("@normalframework/applications-sdk");
 const uuid_1 = require("uuid");
 let entityTypeInitialized = false;
+const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 const avuity = (points, sdk) => __awaiter(void 0, void 0, void 0, function* () {
     const avuityData = yield getAvuityData();
     try {
@@ -29,6 +30,7 @@ const avuity = (points, sdk) => __awaiter(void 0, void 0, void 0, function* () {
     }
     catch (e) {
         sdk.event(e.message);
+        console.error(e.message);
         return (0, applications_sdk_1.InvokeError)(e.message);
     }
 });
@@ -39,8 +41,7 @@ const ensureEntityTypeCreated = (axios) => __awaiter(void 0, void 0, void 0, fun
     try {
         const res = yield axios.post("/api/v1/ontology/types", {
             entityType: {
-                id: "OCCS#occs-1",
-                name: "Occupancy Sensor",
+                name: "Avuity Occupancy Sensor",
                 className: "OCCS",
                 description: "Any device that senses or detects the occupancy information within a space.",
                 markers: [
@@ -130,9 +131,16 @@ const ensureEntityTypeCreated = (axios) => __awaiter(void 0, void 0, void 0, fun
     }
     entityTypeInitialized = true;
 });
+const selectSensor = (localBacnetObjects, name) => {
+    return localBacnetObjects === null || localBacnetObjects === void 0 ? void 0 : localBacnetObjects.find((s) => {
+        var _a;
+        const nameProp = s.props.find((p) => p.property === "PROP_OBJECT_NAME");
+        return ((_a = nameProp === null || nameProp === void 0 ? void 0 : nameProp.value) === null || _a === void 0 ? void 0 : _a.characterString) === name;
+    });
+};
 const ensureSensorsCreatedAndTagged = (axios, avuityResponse) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, e_1, _b, _c;
-    let existingSensors = yield getBacnetSensors(axios);
+    let existingSensors = yield getLocalBacnetObjects(axios);
     try {
         for (var _d = true, _e = __asyncValues(Object.keys(avuityResponse.items)), _f; _f = yield _e.next(), _a = _f.done, !_a;) {
             _c = _f.value;
@@ -140,9 +148,9 @@ const ensureSensorsCreatedAndTagged = (axios, avuityResponse) => __awaiter(void 
             try {
                 const key = _c;
                 const current = avuityResponse.items[key];
-                if (!existingSensors.find((s) => s.attrs.prop_object_name === current.areaName)) {
+                if (!selectSensor(existingSensors, current.areaName)) {
                     const localBacnetObject = yield createLocalBacnetObject(axios, current);
-                    yield createEquipForSensor(axios, current);
+                    yield createEquipForSensor(axios, current, localBacnetObject.uuid);
                     yield tagLocalBacnetObject(axios, current, localBacnetObject.uuid);
                 }
                 else {
@@ -164,7 +172,7 @@ const ensureSensorsCreatedAndTagged = (axios, avuityResponse) => __awaiter(void 
 });
 const updateValues = (axios, avuityResponse) => __awaiter(void 0, void 0, void 0, function* () {
     var _g, e_2, _h, _j;
-    let existingSensors = yield getBacnetSensors(axios);
+    let existingSensors = yield getLocalBacnetObjects(axios);
     try {
         for (var _k = true, _l = __asyncValues(Object.keys(avuityResponse.items)), _m; _m = yield _l.next(), _g = _m.done, !_g;) {
             _j = _m.value;
@@ -172,8 +180,8 @@ const updateValues = (axios, avuityResponse) => __awaiter(void 0, void 0, void 0
             try {
                 const key = _j;
                 const responseItem = avuityResponse.items[key];
-                const currentBacnet = existingSensors.find((s) => s.attrs.prop_object_name === responseItem.areaName);
-                yield updateSensorValue(axios, currentBacnet.uuid, responseItem.occupancy);
+                const sensorPoint = selectSensor(existingSensors, responseItem.areaName);
+                yield updateSensorValue(axios, sensorPoint.objectId, responseItem.occupancy);
             }
             finally {
                 _k = true;
@@ -188,26 +196,28 @@ const updateValues = (axios, avuityResponse) => __awaiter(void 0, void 0, void 0
         finally { if (e_2) throw e_2.error; }
     }
 });
-const updateSensorValue = (normalHttp, uuid, value) => __awaiter(void 0, void 0, void 0, function* () {
-    normalHttp.post("/api/v1/point/data", {
-        layer: "hpl:bacnet:1",
-        uuid,
-        values: [
+const updateSensorValue = (normalHttp, objectId, value) => __awaiter(void 0, void 0, void 0, function* () {
+    normalHttp.patch("/api/v1/bacnet/local", {
+        objectId,
+        props: [
             {
-                ts: new Date().toISOString(),
-                unsigned: value,
+                property: "PROP_PRESENT_VALUE",
+                value: {
+                    real: value,
+                },
             },
         ],
     });
 });
-const createEquipForSensor = (normalHttp, sensor) => __awaiter(void 0, void 0, void 0, function* () {
+const createEquipForSensor = (normalHttp, sensor, sensorUUID) => __awaiter(void 0, void 0, void 0, function* () {
     const result = yield normalHttp.post("/api/v1/point/points", {
         points: [
             {
-                uuid: (0, uuid_1.v4)(),
+                // will always be the same for a given sensorUUID. See: https://stackoverflow.com/questions/10867405/generating-v5-uuid-what-is-name-and-namespace
+                uuid: (0, uuid_1.v5)(sensorUUID, EQUIP_NAMESPACE),
                 layer: "model",
                 attrs: {
-                    type: "Occupancy Sensor",
+                    type: "Avuity Occupancy Sensor",
                     dataLayer: "hpl:bacnet:1",
                     id: sensor.areaName,
                     markers: "device,environment,occupancy,sensor",
@@ -218,11 +228,6 @@ const createEquipForSensor = (normalHttp, sensor) => __awaiter(void 0, void 0, v
     });
 });
 const tagLocalBacnetObject = (normalHttp, sensor, uuid) => __awaiter(void 0, void 0, void 0, function* () {
-    // const sensorsOnBacnet = await getBacnetSensors(normalHttp);
-    // const bacnetSensor = sensorsOnBacnet.find(
-    //   (e: any) => e.attrs.prop_object_name === sensor.areaName
-    // );
-    // if (!bacnetSensor) return;
     yield normalHttp.post("/api/v1/point/points", {
         points: [
             {
@@ -236,16 +241,15 @@ const tagLocalBacnetObject = (normalHttp, sensor, uuid) => __awaiter(void 0, voi
         ],
     });
 });
-const getBacnetSensors = (normalHttp) => __awaiter(void 0, void 0, void 0, function* () {
-    // TODO: this is not a reliable way to get this data
-    const { data } = yield normalHttp.get("/api/v1/point/points?layer=hpl:bacnet:1&responseFormat=0&pageOffset=0&pageSize=100&structuredQuery.field.property=device_prop_object_name&structuredQuery.field.text=NF");
-    return data.points;
+const getLocalBacnetObjects = (normalHttp) => __awaiter(void 0, void 0, void 0, function* () {
+    const { data } = yield normalHttp.get("/api/v1/bacnet/local");
+    return data.objects;
 });
 const createLocalBacnetObject = (normalHttp, area) => __awaiter(void 0, void 0, void 0, function* () {
     const response = yield normalHttp.post("/api/v1/bacnet/local", {
         objectId: {
             instance: 0,
-            objectType: "OBJECT_ANALOG_VALUE",
+            objectType: "OBJECT_ANALOG_INPUT",
         },
         props: [
             {
@@ -267,9 +271,9 @@ const createLocalBacnetObject = (normalHttp, area) => __awaiter(void 0, void 0, 
                 },
             },
             {
-                property: "PROP_OCCUPANCY_UPPER_LIMIT",
+                property: "PROP_MAX_PRES_VALUE",
                 value: {
-                    unsigned: area.capacity,
+                    real: area.capacity,
                 },
             },
         ],
@@ -277,7 +281,7 @@ const createLocalBacnetObject = (normalHttp, area) => __awaiter(void 0, void 0, 
     return response.data;
 });
 const getAvuityData = () => __awaiter(void 0, void 0, void 0, function* () {
-    const { data } = yield applications_sdk_1.axios.get("https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6");
-    return data;
+    const response = yield applications_sdk_1.axios.get("https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6");
+    return response.data;
 });
 //# sourceMappingURL=occ-sensors.js.map

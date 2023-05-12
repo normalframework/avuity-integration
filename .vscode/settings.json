@@ -8,6 +8,14 @@
     {
       "fileMatch": ["/*.hook.json"],
       "url": "./node_modules/@normalframework/applications-sdk/dist/hook-schema.json"
+    },
+    {
+      "fileMatch": ["app.json"],
+      "url": "./node_modules/@normalframework/applications-sdk/dist/application-schema.json"
+    },
+    {
+      "fileMatch": ["hooks-update/*.json"],
+      "url": "./node_modules/@normalframework/applications-sdk/dist/update-hook-schema.json"
     }
   ]
 }

@@ -5,9 +5,10 @@ import {
   InvokeError,
   axios,
 } from "@normalframework/applications-sdk";
-import { v4 as uuid } from "uuid";
+import { v5 as uuidv5 } from "uuid";
 
 let entityTypeInitialized = false;
+const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 
 const avuity: InvokeFn = async (points, sdk) => {
   const avuityData = await getAvuityData();
@@ -18,6 +19,7 @@ const avuity: InvokeFn = async (points, sdk) => {
     return InvokeSuccess("All done");
   } catch (e: any) {
     sdk.event(e.message);
+    console.error(e.message);
     return InvokeError(e.message);
   }
 };
@@ -29,8 +31,7 @@ const ensureEntityTypeCreated = async (axios: AxiosInstance) => {
   try {
     const res = await axios.post("/api/v1/ontology/types", {
       entityType: {
-        id: "OCCS#occs-1",
-        name: "Occupancy Sensor",
+        name: "Avuity Occupancy Sensor",
         className: "OCCS",
         description:
           "Any device that senses or detects the occupancy information within a space.",
@@ -122,21 +123,26 @@ const ensureEntityTypeCreated = async (axios: AxiosInstance) => {
   entityTypeInitialized = true;
 };
 
+const selectSensor = (localBacnetObjects: any[], name: string) => {
+  return localBacnetObjects?.find((s: any) => {
+    const nameProp = s.props.find(
+      (p: any) => p.property === "PROP_OBJECT_NAME"
+    );
+    return nameProp?.value?.characterString === name;
+  });
+};
+
 const ensureSensorsCreatedAndTagged = async (
   axios: AxiosInstance,
   avuityResponse: any
 ) => {
-  let existingSensors = await getBacnetSensors(axios);
+  let existingSensors = await getLocalBacnetObjects(axios);
 
   for await (const key of Object.keys(avuityResponse.items)) {
     const current = avuityResponse.items[key];
-    if (
-      !existingSensors.find(
-        (s: any) => s.attrs.prop_object_name === current.areaName
-      )
-    ) {
+    if (!selectSensor(existingSensors, current.areaName)) {
       const localBacnetObject = await createLocalBacnetObject(axios, current);
-      await createEquipForSensor(axios, current);
+      await createEquipForSensor(axios, current, localBacnetObject.uuid);
       await tagLocalBacnetObject(axios, current, localBacnetObject.uuid);
     } else {
       console.log(`Local Objecty for: ${current.areaName} already created`);
@@ -145,42 +151,51 @@ const ensureSensorsCreatedAndTagged = async (
 };
 
 const updateValues = async (axios: AxiosInstance, avuityResponse: any) => {
-  let existingSensors = await getBacnetSensors(axios);
+  let existingSensors = await getLocalBacnetObjects(axios);
 
   for await (const key of Object.keys(avuityResponse.items)) {
     const responseItem = avuityResponse.items[key];
-    const currentBacnet = existingSensors.find(
-      (s: any) => s.attrs.prop_object_name === responseItem.areaName
+    const sensorPoint = selectSensor(existingSensors, responseItem.areaName);
+
+    await updateSensorValue(
+      axios,
+      sensorPoint.objectId,
+      responseItem.occupancy
     );
-    await updateSensorValue(axios, currentBacnet.uuid, responseItem.occupancy);
   }
 };
 
 const updateSensorValue = async (
   normalHttp: AxiosInstance,
-  uuid: string,
+  objectId: { objectType: string; instance: number },
   value: number
 ) => {
-  normalHttp.post("/api/v1/point/data", {
-    layer: "hpl:bacnet:1",
-    uuid,
-    values: [
+  normalHttp.patch("/api/v1/bacnet/local", {
+    objectId,
+    props: [
       {
-        ts: new Date().toISOString(),
-        unsigned: value,
+        property: "PROP_PRESENT_VALUE",
+        value: {
+          real: value,
+        },
       },
     ],
   });
 };
 
-const createEquipForSensor = async (normalHttp: AxiosInstance, sensor: any) => {
+const createEquipForSensor = async (
+  normalHttp: AxiosInstance,
+  sensor: any,
+  sensorUUID: string
+) => {
   const result = await normalHttp.post("/api/v1/point/points", {
     points: [
       {
-        uuid: uuid(),
+        // will always be the same for a given sensorUUID. See: https://stackoverflow.com/questions/10867405/generating-v5-uuid-what-is-name-and-namespace
+        uuid: uuidv5(sensorUUID, EQUIP_NAMESPACE),
         layer: "model",
         attrs: {
-          type: "Occupancy Sensor",
+          type: "Avuity Occupancy Sensor",
           dataLayer: "hpl:bacnet:1",
           id: sensor.areaName,
           markers: "device,environment,occupancy,sensor",
@@ -196,13 +211,6 @@ const tagLocalBacnetObject = async (
   sensor: any,
   uuid: string
 ) => {
-  // const sensorsOnBacnet = await getBacnetSensors(normalHttp);
-  // const bacnetSensor = sensorsOnBacnet.find(
-  //   (e: any) => e.attrs.prop_object_name === sensor.areaName
-  // );
-
-  // if (!bacnetSensor) return;
-
   await normalHttp.post("/api/v1/point/points", {
     points: [
       {
@@ -217,12 +225,9 @@ const tagLocalBacnetObject = async (
   });
 };
 
-const getBacnetSensors = async (normalHttp: AxiosInstance) => {
-  // TODO: this is not a reliable way to get this data
-  const { data } = await normalHttp.get(
-    "/api/v1/point/points?layer=hpl:bacnet:1&responseFormat=0&pageOffset=0&pageSize=100&structuredQuery.field.property=device_prop_object_name&structuredQuery.field.text=NF"
-  );
-  return data.points;
+const getLocalBacnetObjects = async (normalHttp: AxiosInstance) => {
+  const { data } = await normalHttp.get("/api/v1/bacnet/local");
+  return data.objects;
 };
 
 const createLocalBacnetObject = async (
@@ -238,7 +243,7 @@ const createLocalBacnetObject = async (
   const response = await normalHttp.post("/api/v1/bacnet/local", {
     objectId: {
       instance: 0,
-      objectType: "OBJECT_ANALOG_VALUE",
+      objectType: "OBJECT_ANALOG_INPUT",
     },
     props: [
       {
@@ -260,9 +265,9 @@ const createLocalBacnetObject = async (
         },
       },
       {
-        property: "PROP_OCCUPANCY_UPPER_LIMIT",
+        property: "PROP_MAX_PRES_VALUE",
         value: {
-          unsigned: area.capacity,
+          real: area.capacity,
         },
       },
     ],
@@ -271,8 +276,8 @@ const createLocalBacnetObject = async (
 };
 
 const getAvuityData = async () => {
-  const { data } = await axios.get(
+  const response = await axios.get(
     "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6"
   );
-  return data;
+  return response.data;
 };
