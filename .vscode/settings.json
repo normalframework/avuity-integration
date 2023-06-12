@@ -3,7 +3,7 @@
     "**/dist": true,
     "src/proto": true
   },
-  "debug.javascript.autoAttachFilter": "always",
+  "debug.javascript.autoAttachFilter": "disabled",
   "json.schemas": [
     {
       "fileMatch": ["*.hook.json"],
