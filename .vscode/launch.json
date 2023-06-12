@@ -8,7 +8,7 @@
       "type": "node-terminal"
     },
     {
-      "command": "npx tsc && npx normal-application-run ${input:hookFile} ${input:configFile}",
+      "command": "npx @normalframework/applications-sdk run -f ${relativeFile}",
       "name": "Debug Script",
       "request": "launch",
       "type": "node-terminal",

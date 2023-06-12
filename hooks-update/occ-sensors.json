@@ -2,6 +2,6 @@
   "applicationId": "avuity-integration",
   "hook": {
     "id": "a96e9dc4-45dd-4347-8856-5d99ed1ce4b2",
-    "entryPoint": "occ-sensors.js"
+    "entryPoint": "hooks/occ-sensors.js"
   }
 }

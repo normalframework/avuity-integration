@@ -3,10 +3,10 @@
     "**/dist": true,
     "src/proto": true
   },
-  "debug.javascript.autoAttachFilter": "smart",
+  "debug.javascript.autoAttachFilter": "always",
   "json.schemas": [
     {
-      "fileMatch": ["/*.hook.json"],
+      "fileMatch": ["*.hook.json"],
       "url": "./node_modules/@normalframework/applications-sdk/dist/hook-schema.json"
     },
     {

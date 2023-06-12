@@ -1,35 +1,34 @@
-import {
-  InvokeFn,
-  AxiosInstance,
-  InvokeSuccess,
-  InvokeError,
-  axios,
-} from "@normalframework/applications-sdk";
-import { v5 as uuidv5 } from "uuid";
+const NormalSdk = require("@normalframework/applications-sdk");
+const { InvokeSuccess, InvokeError } = NormalSdk;
+const { v5: uuidv5 } = require("uuid");
 
 let entityTypeInitialized = false;
 const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 
-const avuity: InvokeFn = async (points, sdk) => {
-  const avuityData = await getAvuityData();
+/**
+ * Invoke hook function
+ * @param {NormalSdk.InvokeParams} params
+ * @returns {NormalSdk.InvokeResult}
+ */
+module.exports = async ({ sdk }) => {
+  const avuityData = await getAvuityData(sdk.http);
+
   try {
     await ensureEntityTypeCreated(sdk.http);
     await ensureSensorsCreatedAndTagged(sdk.http, avuityData);
     await updateValues(sdk.http, avuityData);
-    return InvokeSuccess("All done");
-  } catch (e: any) {
+    return InvokeSuccess("Records updated");
+  } catch (e) {
     sdk.event(e.message);
     console.error(e.message);
     return InvokeError(e.message);
   }
 };
 
-module.exports = avuity;
-
-const ensureEntityTypeCreated = async (axios: AxiosInstance) => {
+const ensureEntityTypeCreated = async (axios) => {
   if (entityTypeInitialized) return;
   try {
-    const res = await axios.post("/api/v1/ontology/types", {
+    await axios.post("/api/v1/ontology/types", {
       entityType: {
         name: "Avuity Occupancy Sensor",
         className: "OCCS",
@@ -114,7 +113,7 @@ const ensureEntityTypeCreated = async (axios: AxiosInstance) => {
         kind: "EQUIPMENT",
       },
     });
-  } catch (e: any) {
+  } catch (e) {
     // 409 expected if we have already created the entity type
     if (e.response.status !== 409) {
       throw e;
@@ -123,19 +122,14 @@ const ensureEntityTypeCreated = async (axios: AxiosInstance) => {
   entityTypeInitialized = true;
 };
 
-const selectSensor = (localBacnetObjects: any[], name: string) => {
-  return localBacnetObjects?.find((s: any) => {
-    const nameProp = s.props.find(
-      (p: any) => p.property === "PROP_OBJECT_NAME"
-    );
+const selectSensor = (localBacnetObjects, name) => {
+  return localBacnetObjects?.find((s) => {
+    const nameProp = s.props.find((p) => p.property === "PROP_OBJECT_NAME");
     return nameProp?.value?.characterString === name;
   });
 };
 
-const ensureSensorsCreatedAndTagged = async (
-  axios: AxiosInstance,
-  avuityResponse: any
-) => {
+const ensureSensorsCreatedAndTagged = async (axios, avuityResponse) => {
   let existingSensors = await getLocalBacnetObjects(axios);
 
   for await (const key of Object.keys(avuityResponse.items)) {
@@ -145,12 +139,12 @@ const ensureSensorsCreatedAndTagged = async (
       await createEquipForSensor(axios, current, localBacnetObject.uuid);
       await tagLocalBacnetObject(axios, current, localBacnetObject.uuid);
     } else {
-      console.log(`Local Objecty for: ${current.areaName} already created`);
+      console.log(`Local Object for: ${current.areaName} already created`);
     }
   }
 };
 
-const updateValues = async (axios: AxiosInstance, avuityResponse: any) => {
+const updateValues = async (axios, avuityResponse) => {
   let existingSensors = await getLocalBacnetObjects(axios);
 
   for await (const key of Object.keys(avuityResponse.items)) {
@@ -165,11 +159,7 @@ const updateValues = async (axios: AxiosInstance, avuityResponse: any) => {
   }
 };
 
-const updateSensorValue = async (
-  normalHttp: AxiosInstance,
-  objectId: { objectType: string; instance: number },
-  value: number
-) => {
+const updateSensorValue = async (normalHttp, objectId, value) => {
   normalHttp.patch("/api/v1/bacnet/local", {
     objectId,
     props: [
@@ -183,11 +173,7 @@ const updateSensorValue = async (
   });
 };
 
-const createEquipForSensor = async (
-  normalHttp: AxiosInstance,
-  sensor: any,
-  sensorUUID: string
-) => {
+const createEquipForSensor = async (normalHttp, sensor, sensorUUID) => {
   const result = await normalHttp.post("/api/v1/point/points", {
     points: [
       {
@@ -206,11 +192,7 @@ const createEquipForSensor = async (
   });
 };
 
-const tagLocalBacnetObject = async (
-  normalHttp: AxiosInstance,
-  sensor: any,
-  uuid: string
-) => {
+const tagLocalBacnetObject = async (normalHttp, sensor, uuid) => {
   await normalHttp.post("/api/v1/point/points", {
     points: [
       {
@@ -225,21 +207,12 @@ const tagLocalBacnetObject = async (
   });
 };
 
-const getLocalBacnetObjects = async (normalHttp: AxiosInstance) => {
+const getLocalBacnetObjects = async (normalHttp) => {
   const { data } = await normalHttp.get("/api/v1/bacnet/local");
   return data.objects;
 };
 
-const createLocalBacnetObject = async (
-  normalHttp: AxiosInstance,
-  area: any
-): Promise<{
-  objectId: {
-    objectType: string;
-    instance: number;
-  };
-  uuid: string;
-}> => {
+const createLocalBacnetObject = async (normalHttp, area) => {
   const response = await normalHttp.post("/api/v1/bacnet/local", {
     objectId: {
       instance: 0,
@@ -275,7 +248,7 @@ const createLocalBacnetObject = async (
   return response.data;
 };
 
-const getAvuityData = async () => {
+const getAvuityData = async (axios) => {
   const response = await axios.get(
     "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6"
   );
