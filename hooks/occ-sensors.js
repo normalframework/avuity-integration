@@ -2,6 +2,8 @@ const NormalSdk = require("@normalframework/applications-sdk");
 const { InvokeSuccess, InvokeError } = NormalSdk;
 const { v5: uuidv5 } = require("uuid");
 
+AVUITY_ENDPOINT =
+  "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6";
 let entityTypeInitialized = false;
 const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 
@@ -249,8 +251,6 @@ const createLocalBacnetObject = async (normalHttp, area) => {
 };
 
 const getAvuityData = async (axios) => {
-  const response = await axios.get(
-    "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6"
-  );
+  const response = await axios.get(AVUITY_ENDPOINT);
   return response.data;
 };
