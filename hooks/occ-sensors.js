@@ -33,32 +33,17 @@ const ensureEntityTypeCreated = async (axios) => {
     await axios.post("/api/v1/ontology/types", {
       entityType: {
         name: "Avuity Occupancy Sensor",
-        className: "OCCS",
+        className: "occupancySensor",
         description:
           "Any device that senses or detects the occupancy information within a space.",
         markers: [
           {
-            name: "device",
-            description: "Microprocessor based hardware device",
+            name: "occupancySensor",
             ontologyRequires: true,
             typeRequires: false,
           },
           {
-            name: "environment",
-            description:
-              "Encompassing all aspects of a defined area (air, lighting, acoustic, etc)",
-            ontologyRequires: true,
-            typeRequires: false,
-          },
-          {
-            name: "occupancy",
-            description: "Number of occupants in a space",
-            ontologyRequires: true,
-            typeRequires: false,
-          },
-          {
-            name: "sensor",
-            description: "Point is a sensor, input, AI/BI",
+            name: "equip",
             ontologyRequires: true,
             typeRequires: false,
           },
@@ -186,8 +171,8 @@ const createEquipForSensor = async (normalHttp, sensor, sensorUUID) => {
           type: "Avuity Occupancy Sensor",
           dataLayer: "hpl:bacnet:1",
           id: sensor.areaName,
-          markers: "device,environment,occupancy,sensor",
-          class: "OCCS",
+          markers: "occupancy,sensor,point",
+          class: "occupancySensor#avuity",
         },
       },
     ],
@@ -202,7 +187,9 @@ const tagLocalBacnetObject = async (normalHttp, sensor, uuid) => {
         layer: "model",
         attrs: {
           equipRef: sensor.areaName,
-          class: "OCCSNS",
+          class: "occupancy-sensor",
+          markers: "occupancy,sensor,point",
+
         },
       },
     ],
