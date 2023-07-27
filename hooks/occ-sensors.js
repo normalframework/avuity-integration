@@ -79,20 +79,6 @@ const ensureEntityTypeCreated = async (axios) => {
             ontologyRequires: false,
             typeRequires: false,
           },
-          {
-            name: "hvacZoneRef",
-            description: "",
-            defaultValue: "",
-            ontologyRequires: false,
-            typeRequires: false,
-          },
-          {
-            name: "lightingZoneRef",
-            description: "",
-            defaultValue: "",
-            ontologyRequires: false,
-            typeRequires: false,
-          },
         ],
         parents: ["DEV", "OTDEV", "ENVS"],
         hasChildren: true,
@@ -169,10 +155,10 @@ const createEquipForSensor = async (normalHttp, sensor, sensorUUID) => {
         layer: "model",
         attrs: {
           type: "Avuity Occupancy Sensor",
-          dataLayer: "hpl:bacnet:1",
+          dataLayer: "avuity",
           id: sensor.areaName,
           markers: "occupancy,sensor,point",
-          class: "occupancySensor#avuity",
+          class: "occupancySensor",
         },
       },
     ],
@@ -189,9 +175,19 @@ const tagLocalBacnetObject = async (normalHttp, sensor, uuid) => {
           equipRef: sensor.areaName,
           class: "occupancy-sensor",
           markers: "occupancy,sensor,point",
-
         },
       },
+      {
+        uuid,
+        layer: "avuity",
+        attrs: {
+          "occupancy": String(sensor.capacity),
+          "area_name": sensor.areaName,
+          "floor_name": sensor.floorName,
+          "building_name": sensor.buildingName,
+          "location_name": sensor.locationName,
+        }
+      }
     ],
   });
 };
