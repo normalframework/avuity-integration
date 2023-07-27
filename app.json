@@ -4,7 +4,7 @@
     "layer": {
 	"name": "avuity",
 	"indexed": true,
-	"components": ["area_name", "capacity", "floor_name", "building_name", "location_name"],
+	"components": ["attr_area_name", "attr_capacity", "attr_floor_name", "attr_building_name", "attr_location_name"],
 	"component_options": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
 	"component_types": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"]
     }
