@@ -3,6 +3,7 @@
     "description": "Avuity Integration",
     "layer": {
 	"name": "avuity",
+	"indexed": true,
 	"components": ["area_name", "capacity", "floor_name", "building_name", "location_name"],
 	"component_options": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
 	"component_types": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"]
