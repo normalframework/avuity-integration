@@ -10,7 +10,7 @@ const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 /**
  * Invoke hook function
  * @param {NormalSdk.InvokeParams} params
- * @returns {NormalSdk.InvokeResult}
+ * @returns {NormalSdk.InvokeResult} 
  */
 module.exports = async ({ sdk }) => {
   const avuityData = await getAvuityData(sdk.http);
@@ -157,7 +157,7 @@ const createEquipForSensor = async (normalHttp, sensor, sensorUUID) => {
           type: "Avuity Occupancy Sensor",
           dataLayer: "avuity",
           id: sensor.areaName,
-          markers: "occupancy,sensor,point",
+          markers: "occupancySensor,equip",
           class: "occupancySensor",
         },
       },
@@ -181,7 +181,7 @@ const tagLocalBacnetObject = async (normalHttp, sensor, uuid) => {
         uuid,
         layer: "avuity",
         attrs: {
-          "occupancy": String(sensor.capacity),
+          "capacity": String(sensor.capacity),
           "area_name": sensor.areaName,
           "floor_name": sensor.floorName,
           "building_name": sensor.buildingName,
