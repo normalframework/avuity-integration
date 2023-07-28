@@ -1,7 +1,7 @@
 const NormalSdk = require("@normalframework/applications-sdk");
 const { InvokeSuccess, InvokeError } = NormalSdk;
-const { v5: uuidv5 } = require("uuid");
-
+const { v5: uuidv5 } = require("uuid"); 
+ 
 AVUITY_ENDPOINT =
   "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6";
 let entityTypeInitialized = false;
@@ -22,7 +22,7 @@ module.exports = async ({ sdk }) => {
     return InvokeSuccess("Records updated");
   } catch (e) {
     sdk.event(e.message);
-    console.error(e.message);
+    console.error(e.message, ": ", e.response.headers["grpc-message"]);
     return InvokeError(e.message);
   }
 };
@@ -63,13 +63,6 @@ const ensureEntityTypeCreated = async (axios) => {
             description: "",
             defaultValue: "",
             ontologyRequires: true,
-            typeRequires: false,
-          },
-          {
-            name: "networkRef",
-            description: "",
-            defaultValue: "",
-            ontologyRequires: false,
             typeRequires: false,
           },
           {
