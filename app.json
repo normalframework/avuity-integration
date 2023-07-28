@@ -6,6 +6,8 @@
 	"indexed": true,
 	"components": ["attr_area_name", "attr_capacity", "attr_floor_name", "attr_building_name", "attr_location_name"],
 	"component_options": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
-	"component_types": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"]
+	"component_types": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
+	"name_attribute": "attr_area_name",
+	"device_id_attribute": "attr_location_name"
     }
 }
