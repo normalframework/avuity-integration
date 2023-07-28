@@ -3,7 +3,7 @@ const { InvokeSuccess, InvokeError } = NormalSdk;
 const { v5: uuidv5 } = require("uuid"); 
  
 AVUITY_ENDPOINT =
-  "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-floor?buildingName=Avuity%20Office&floorName=Suite%20510&access-token=a4cGtYcRPdpwANr6";
+  "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-building?buildingName=Avuity%20Office&access-token=a4cGtYcRPdpwANr6";
 let entityTypeInitialized = false;
 const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 
@@ -90,8 +90,7 @@ const ensureEntityTypeCreated = async (axios) => {
 
 const selectSensor = (localBacnetObjects, name) => {
   return localBacnetObjects?.find((s) => {
-    const nameProp = s.props.find((p) => p.property === "PROP_OBJECT_NAME");
-    return nameProp?.value?.characterString === name;
+    return s.uuid === uuidv5(name + ".occupancy", EQUIP_NAMESPACE)
   });
 };
 
@@ -101,9 +100,9 @@ const ensureSensorsCreatedAndTagged = async (axios, avuityResponse) => {
   for await (const key of Object.keys(avuityResponse.items)) {
     const current = avuityResponse.items[key];
     if (!selectSensor(existingSensors, current.areaName)) {
-      const localBacnetObject = await createLocalBacnetObject(axios, current);
-      await createEquipForSensor(axios, current, localBacnetObject.uuid);
-      await tagLocalBacnetObject(axios, current, localBacnetObject.uuid);
+      const localBacnetObjects = await createLocalBacnetObjects(axios, current);
+      await createEquipForSensor(axios, current, localBacnetObjects);
+      await tagLocalBacnetObjects(axios, current, localBacnetObjects);
     } else {
       console.log(`Local Object for: ${current.areaName} already created`);
     }
@@ -111,40 +110,64 @@ const ensureSensorsCreatedAndTagged = async (axios, avuityResponse) => {
 };
 
 const updateValues = async (axios, avuityResponse) => {
-  let existingSensors = await getLocalBacnetObjects(axios);
-
   for await (const key of Object.keys(avuityResponse.items)) {
     const responseItem = avuityResponse.items[key];
-    const sensorPoint = selectSensor(existingSensors, responseItem.areaName);
-
-    await updateSensorValue(
+    await updateSensorValues(
       axios,
-      sensorPoint.objectId,
-      responseItem.occupancy
+      responseItem,
     );
   }
 };
 
-const updateSensorValue = async (normalHttp, objectId, value) => {
-  normalHttp.patch("/api/v1/bacnet/local", {
-    objectId,
-    props: [
-      {
-        property: "PROP_PRESENT_VALUE",
-        value: {
-          real: value,
+const updateSensorValues = async (normalHttp, item) => {
+
+  if (item.occpuancy !== null) {
+    normalHttp.patch("/api/v1/bacnet/local", {
+      uuid: uuidv5(item.areaName + ".occupancy", EQUIP_NAMESPACE),
+      props: [
+        {
+          property: "PROP_PRESENT_VALUE",
+          value: {
+            real: item.occupancy,
+          },
         },
-      },
-    ],
+      ],
+    });
+  }
+  if (item.temperature !== null) {
+    normalHttp.patch("/api/v1/bacnet/local", {
+      uuid: uuidv5(item.areaName + ".temperature", EQUIP_NAMESPACE),
+      props: [
+        {
+          property: "PROP_PRESENT_VALUE",
+          value: {
+            real: item.temperature,
+          },
+        },
+       ],
+    });
+  }
+  if (item.humidity !== null) { 
+    normalHttp.patch("/api/v1/bacnet/local", {
+      uuid: uuidv5(item.areaName + ".humidity", EQUIP_NAMESPACE),
+      props: [
+        {
+          property: "PROP_PRESENT_VALUE",
+          value: {
+            real: item.humidity,
+          },
+        },
+      ],
   });
+  }
 };
 
-const createEquipForSensor = async (normalHttp, sensor, sensorUUID) => {
+const createEquipForSensor = async (normalHttp, sensor) => {
   const result = await normalHttp.post("/api/v1/point/points", {
     points: [
       {
         // will always be the same for a given sensorUUID. See: https://stackoverflow.com/questions/10867405/generating-v5-uuid-what-is-name-and-namespace
-        uuid: uuidv5(sensorUUID, EQUIP_NAMESPACE),
+        uuid: uuidv5(sensor.areaName + ".equip", EQUIP_NAMESPACE),
         layer: "model",
         attrs: {
           type: "Avuity Occupancy Sensor",
@@ -158,11 +181,11 @@ const createEquipForSensor = async (normalHttp, sensor, sensorUUID) => {
   });
 };
 
-const tagLocalBacnetObject = async (normalHttp, sensor, uuid) => {
+const tagLocalBacnetObjects = async (normalHttp, sensor) => {
   await normalHttp.post("/api/v1/point/points", {
     points: [
       {
-        uuid,
+        uuid: uuidv5(sensor.areaName + ".occupancy", EQUIP_NAMESPACE),
         layer: "model",
         attrs: {
           equipRef: sensor.areaName,
@@ -171,7 +194,47 @@ const tagLocalBacnetObject = async (normalHttp, sensor, uuid) => {
         },
       },
       {
-        uuid,
+        uuid: uuidv5(sensor.areaName + ".occupancy", EQUIP_NAMESPACE),
+        layer: "avuity",
+        attrs: {
+          "capacity": String(sensor.capacity),
+          "area_name": sensor.areaName,
+          "floor_name": sensor.floorName,
+          "building_name": sensor.buildingName,
+          "location_name": sensor.locationName,
+        }
+      },
+     {
+        uuid: uuidv5(sensor.areaName + ".temperature", EQUIP_NAMESPACE),
+        layer: "model",
+        attrs: {
+          equipRef: sensor.areaName,
+          class: "temperature-sensor",
+          markers: "temp,sensor,point",
+        },
+      },
+      {
+        uuid: uuidv5(sensor.areaName + ".temperature", EQUIP_NAMESPACE),
+        layer: "avuity",
+        attrs: {
+          "capacity": String(sensor.capacity),
+          "area_name": sensor.areaName,
+          "floor_name": sensor.floorName,
+          "building_name": sensor.buildingName,
+          "location_name": sensor.locationName,
+        }
+      },
+      {
+        uuid: uuidv5(sensor.areaName + ".humidity", EQUIP_NAMESPACE),
+        layer: "model",
+        attrs: {
+          equipRef: sensor.areaName,
+          class: "humidity-sensor",
+          markers: "humidity,sensor,point",
+        },
+      },
+      {
+        uuid: uuidv5(sensor.areaName + ".humidity", EQUIP_NAMESPACE),
         layer: "avuity",
         attrs: {
           "capacity": String(sensor.capacity),
@@ -190,8 +253,14 @@ const getLocalBacnetObjects = async (normalHttp) => {
   return data.objects;
 };
 
-const createLocalBacnetObject = async (normalHttp, area) => {
-  const response = await normalHttp.post("/api/v1/bacnet/local", {
+const createLocalBacnetObjects = async (normalHttp, area) => {
+  var local_objects = {
+    "occupancy": undefined,
+    "temperature": undefined,
+    "humidity": undefined,
+  }
+  var response = await normalHttp.post("/api/v1/bacnet/local", {
+    uuid: uuidv5(area.areaName + ".occupancy", EQUIP_NAMESPACE),
     objectId: {
       instance: 0,
       objectType: "OBJECT_ANALOG_INPUT",
@@ -206,13 +275,13 @@ const createLocalBacnetObject = async (normalHttp, area) => {
       {
         property: "PROP_OBJECT_NAME",
         value: {
-          characterString: area.areaName,
+          characterString: area.areaName + " Occupancy",
         },
       },
       {
         property: "PROP_DESCRIPTION",
         value: {
-          characterString: "Occupation Sensor",
+          characterString: "Occupancy Sensor",
         },
       },
       {
@@ -223,6 +292,63 @@ const createLocalBacnetObject = async (normalHttp, area) => {
       },
     ],
   });
+  local_objects.occupancy = response.data;
+  response = await normalHttp.post("/api/v1/bacnet/local", {
+    uuid: uuidv5(area.areaName + ".humidity", EQUIP_NAMESPACE),
+    objectId: {
+      instance: 0,
+      objectType: "OBJECT_ANALOG_INPUT",
+    },
+    props: [
+      {
+        property: "PROP_UNITS",
+        value: {
+          enumerated: 29,
+        },
+      },
+      {
+        property: "PROP_OBJECT_NAME",
+        value: {
+          characterString: area.areaName + " Humidity",
+        },
+      },
+      {
+        property: "PROP_DESCRIPTION",
+        value: {
+          characterString: "Humidity Sensor",
+        },
+      }
+    ],
+  });
+  local_objects.humidity = response.data;
+  response = await normalHttp.post("/api/v1/bacnet/local", {
+    uuid: uuidv5(area.areaName + ".temperature", EQUIP_NAMESPACE),
+    objectId: {
+      instance: 0,
+      objectType: "OBJECT_ANALOG_INPUT",
+    },
+    props: [
+      {
+        property: "PROP_UNITS",
+        value: {
+          enumerated: 62,
+        },
+      },
+      {
+        property: "PROP_OBJECT_NAME",
+        value: {
+          characterString: area.areaName + " Temperature",
+        },
+      },
+      {
+        property: "PROP_DESCRIPTION",
+        value: {
+          characterString: "Temperature Sensor",
+        },
+      }
+    ],
+  });
+  local_objects.temperature = response.data;
   return response.data;
 };
 
