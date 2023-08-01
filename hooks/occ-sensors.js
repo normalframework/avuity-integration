@@ -2,8 +2,7 @@ const NormalSdk = require("@normalframework/applications-sdk");
 const { InvokeSuccess, InvokeError } = NormalSdk;
 const { v5: uuidv5 } = require("uuid"); 
  
-AVUITY_ENDPOINT =
-  "https://avuityoffice.avuity.com/VuSpace/api/real-time-occupancy/get-by-building?buildingName=Avuity%20Office&access-token=a4cGtYcRPdpwANr6";
+AVUITY_ENDPOINT = ""
 let entityTypeInitialized = false;
 const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 
@@ -12,7 +11,14 @@ const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
  * @param {NormalSdk.InvokeParams} params
  * @returns {NormalSdk.InvokeResult} 
  */
-module.exports = async ({ sdk }) => {
+module.exports = async ({ sdk, points, config }) => {
+  if (AVUITY_ENDPOINT === "") {
+    AVUITY_ENDPOINT = config["Avuity API URL"].valueType.string
+  }
+  if (AVUITY_ENDPOINT === "") {
+    console.log("Unconfigured: Set Avuity API URL in config")
+    return InvokeError("Unconfigured API URL")
+  }
   const avuityData = await getAvuityData(sdk.http);
 
   try {
