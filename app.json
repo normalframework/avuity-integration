@@ -9,5 +9,11 @@
 	"component_types": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
 	"name_attribute": "attr_area_name",
 	"device_id_attribute": "attr_location_name"
-    }
+    },
+    "options": [
+        {
+            "name": "Avuity API URL",
+            "option_type": "TYPE_STRING"
+        }   
+    ],
 }
