@@ -103,6 +103,7 @@ const selectSensor = (localBacnetObjects, name) => {
 const ensureSensorsCreatedAndTagged = async (axios, avuityResponse) => {
   let existingSensors = await getLocalBacnetObjects(axios);
 
+
   for await (const key of Object.keys(avuityResponse.items)) {
     const current = avuityResponse.items[key];
     if (!selectSensor(existingSensors, current.areaName)) {
@@ -260,12 +261,7 @@ const getLocalBacnetObjects = async (normalHttp) => {
 };
 
 const createLocalBacnetObjects = async (normalHttp, area) => {
-  var local_objects = {
-    "occupancy": undefined,
-    "temperature": undefined,
-    "humidity": undefined,
-  }
-  var response = await normalHttp.post("/api/v1/bacnet/local", {
+  await normalHttp.post("/api/v1/bacnet/local", {
     uuid: uuidv5(area.areaName + ".occupancy", EQUIP_NAMESPACE),
     objectId: {
       instance: 0,
@@ -298,8 +294,7 @@ const createLocalBacnetObjects = async (normalHttp, area) => {
       },
     ],
   });
-  local_objects.occupancy = response.data;
-  response = await normalHttp.post("/api/v1/bacnet/local", {
+  await normalHttp.post("/api/v1/bacnet/local", {
     uuid: uuidv5(area.areaName + ".humidity", EQUIP_NAMESPACE),
     objectId: {
       instance: 0,
@@ -326,8 +321,7 @@ const createLocalBacnetObjects = async (normalHttp, area) => {
       }
     ],
   });
-  local_objects.humidity = response.data;
-  response = await normalHttp.post("/api/v1/bacnet/local", {
+  await normalHttp.post("/api/v1/bacnet/local", {
     uuid: uuidv5(area.areaName + ".temperature", EQUIP_NAMESPACE),
     objectId: {
       instance: 0,
@@ -354,8 +348,6 @@ const createLocalBacnetObjects = async (normalHttp, area) => {
       }
     ],
   });
-  local_objects.temperature = response.data;
-  return response.data;
 };
 
 const getAvuityData = async (axios) => {
