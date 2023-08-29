@@ -7,7 +7,7 @@ const NormalSdk = require("@normalframework/applications-sdk");
  */
 module.exports = async ({ points }) => {
   for await (const sensor of points) {
-    if (await sensor.trueFor("30s", (v) => v.value === 0, "hpl:bacnet:1")) {
+    if (await sensor.trueFor("30s", (v) => v.value === 0)) {
       console.log(`${sensor.latestValue.value} is unoccupied!`);
     } else {
       console.log(
