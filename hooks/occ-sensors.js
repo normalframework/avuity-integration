@@ -24,7 +24,7 @@ module.exports = async ({ sdk, config }) => {
     return InvokeSuccess("Records updated");
   } catch (e) {
     sdk.event(e.message);
-    console.error(e.message, ": ", e.response.headers["grpc-message"]);
+    console.log(e);
     return InvokeError(e.message);
   }
 };
@@ -83,7 +83,7 @@ const ensureEntityTypeCreated = async () => {
     });
   } catch (e) {
     // 409 expected if we have already created the entity type
-    if (e.response.status !== 409) {
+    if (e.status !== 409) {
       throw e;
     }
   }
@@ -97,7 +97,7 @@ const selectSensor = (localBacnetObjects, name) => {
 };
 
 const ensureSensorsCreatedAndTagged = async (avuityResponse) => {
-  let existingSensors = await getLocalBacnetObjects(axios);
+  let existingSensors = await getLocalBacnetObjects();
 
   for await (const key of Object.keys(avuityResponse.items)) {
     const current = avuityResponse.items[key];
