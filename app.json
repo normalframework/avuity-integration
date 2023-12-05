@@ -5,16 +5,16 @@
     "name": "avuity",
     "indexed": true,
     "components": [
-      "attr_area_name",
-      "attr_capacity",
-      "attr_floor_name",
-      "attr_building_name",
-      "attr_location_name"
+      "area_name",
+      "capacity",
+      "floor_name",
+      "building_name",
+      "location_name"
     ],
     "component_options": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
     "component_types": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
-    "name_attribute": "area_name",
-    "device_id_attribute": "location_name"
+    "default_display_attrs" : ["area_name", "floor_name", "building_name"],
+    "default_grouping_attrs" : ["building_name", "floor_name"]
   },
   "options": [
     {
@@ -22,5 +22,5 @@
       "option_type": "TYPE_STRING",
       "required": true
     }
-  ]
+  ],
 }
