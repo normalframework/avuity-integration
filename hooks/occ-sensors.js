@@ -6,7 +6,7 @@ AVUITY_ENDPOINT = "";
 let entityTypeInitialized = false;
 const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 let http;
-
+ 
 /**
  * Invoke hook function
  * @param {NormalSdk.InvokeParams} params
@@ -16,7 +16,7 @@ module.exports = async ({ sdk, config }) => {
   AVUITY_ENDPOINT = config.avuityApiUrl;
   http = sdk.http;
   const avuityData = await getAvuityData();
-
+ 
   try {
     await ensureEntityTypeCreated();
     await ensureSensorsCreatedAndTagged(avuityData);
@@ -32,11 +32,11 @@ module.exports = async ({ sdk, config }) => {
 const ensureEntityTypeCreated = async () => {
   if (entityTypeInitialized) return;
   try {
-    await http.post("/api/v1/ontology/types", {
-      entityType: {
+    await http.post("/api/v1/equipment/types", {
+      equipmentType: {
         name: "Avuity Occupancy Sensor",
         className: "occupancySensor",
-        description:
+        description: 
           "Any device that senses or detects the occupancy information within a space.",
         markers: [
           {
@@ -166,6 +166,8 @@ const createEquipForSensor = async (sensor) => {
       {
         uuid: uuidv5(sensor.areaName + ".equip", EQUIP_NAMESPACE),
         layer: "model",
+        type: "EQUIP",
+        name: sensor.areaName,
         attrs: {
           type: "Avuity Occupancy Sensor",
           dataLayer: "avuity",
@@ -193,6 +195,8 @@ const tagLocalBacnetObjects = async (sensor) => {
       {
         uuid: uuidv5(sensor.areaName + ".occupancy", EQUIP_NAMESPACE),
         layer: "avuity",
+        name: sensor.areaName + " Occupancy",
+        type: "POINT",
         attrs: {
           capacity: String(sensor.capacity),
           area_name: sensor.areaName.replaceAll(",", " "),
@@ -213,6 +217,8 @@ const tagLocalBacnetObjects = async (sensor) => {
       {
         uuid: uuidv5(sensor.areaName + ".temperature", EQUIP_NAMESPACE),
         layer: "avuity",
+        name: sensor.areaName + " Temperature",
+        type: "POINT",
         attrs: {
           capacity: String(sensor.capacity),
           area_name: sensor.areaName.replaceAll(",", " "),
@@ -233,6 +239,8 @@ const tagLocalBacnetObjects = async (sensor) => {
       {
         uuid: uuidv5(sensor.areaName + ".humidity", EQUIP_NAMESPACE),
         layer: "avuity",
+        name: sensor.areaName + " Humidity",
+        type: "POINT",
         attrs: {
           capacity: String(sensor.capacity),
           area_name: sensor.areaName.replaceAll(",", " "),
