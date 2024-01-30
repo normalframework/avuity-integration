@@ -36,6 +36,7 @@ const ensureEntityTypeCreated = async () => {
       equipmentType: {
         name: "Avuity Occupancy Sensor",
         className: "occupancySensor",
+        id: "ccc53d56-bc69-11ee-af99-5b86660b5caf",       
         description: 
           "Any device that senses or detects the occupancy information within a space.",
         markers: [
@@ -168,6 +169,7 @@ const createEquipForSensor = async (sensor) => {
         layer: "model",
         type: "EQUIP",
         name: sensor.areaName,
+        equipTypeId: "ccc53d56-bc69-11ee-af99-5b86660b5caf",       
         attrs: {
           type: "Avuity Occupancy Sensor",
           dataLayer: "avuity",
