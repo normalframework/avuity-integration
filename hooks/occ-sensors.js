@@ -5,6 +5,7 @@ const { v5: uuidv5 } = require("uuid");
 AVUITY_ENDPOINT = "";
 let entityTypeInitialized = false;
 const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
+const EQUIP_TYPE_ID = "ccc53d56-bc69-11ee-af99-5b86660b5caf"
 let http;
  
 /**
@@ -36,7 +37,7 @@ const ensureEntityTypeCreated = async () => {
       equipmentType: {
         name: "Avuity Occupancy Sensor",
         className: "occupancySensor",
-        id: "ccc53d56-bc69-11ee-af99-5b86660b5caf",       
+        id: EQUIP_TYPE_ID,       
         description: 
           "Any device that senses or detects the occupancy information within a space.",
         markers: [
@@ -97,6 +98,7 @@ const selectSensor = (localBacnetObjects, name) => {
   });
 };
 
+
 const ensureSensorsCreatedAndTagged = async (avuityResponse) => {
   let existingSensors = await getLocalBacnetObjects();
 
@@ -121,7 +123,7 @@ const updateValues = async (avuityResponse) => {
 
 const updateSensorValues = async (item) => {
   if (item.occpuancy !== null) {
-    http.patch("/api/v1/bacnet/local", {
+    await http.patch("/api/v1/bacnet/local", {
       uuid: uuidv5(item.areaName + ".occupancy", EQUIP_NAMESPACE),
       props: [
         {
@@ -134,7 +136,7 @@ const updateSensorValues = async (item) => {
     });
   }
   if (item.temperature !== null) {
-    http.patch("/api/v1/bacnet/local", {
+    await http.patch("/api/v1/bacnet/local", {
       uuid: uuidv5(item.areaName + ".temperature", EQUIP_NAMESPACE),
       props: [
         {
@@ -147,7 +149,7 @@ const updateSensorValues = async (item) => {
     });
   }
   if (item.humidity !== null) {
-    http.patch("/api/v1/bacnet/local", {
+    await http.patch("/api/v1/bacnet/local", {
       uuid: uuidv5(item.areaName + ".humidity", EQUIP_NAMESPACE),
       props: [
         {
@@ -167,10 +169,10 @@ const createEquipForSensor = async (sensor) => {
       {
         uuid: uuidv5(sensor.areaName + ".equip", EQUIP_NAMESPACE),
         layer: "model",
-        type: "EQUIP",
-        name: sensor.areaName,
-        equipTypeId: "ccc53d56-bc69-11ee-af99-5b86660b5caf",       
+        point_type: 4,
+        name: sensor.areaName,       
         attrs: {
+          equipTypeId: EQUIP_TYPE_ID,
           type: "Avuity Occupancy Sensor",
           dataLayer: "avuity",
           id: sensor.areaName,
@@ -189,6 +191,7 @@ const tagLocalBacnetObjects = async (sensor) => {
         uuid: uuidv5(sensor.areaName + ".occupancy", EQUIP_NAMESPACE),
         layer: "model",
         attrs: {
+          equipTypeId: EQUIP_TYPE_ID,
           equipRef: sensor.areaName,
           class: "occupancy-sensor",
           markers: "occupancy,sensor,point",
@@ -198,7 +201,7 @@ const tagLocalBacnetObjects = async (sensor) => {
         uuid: uuidv5(sensor.areaName + ".occupancy", EQUIP_NAMESPACE),
         layer: "avuity",
         name: sensor.areaName + " Occupancy",
-        type: "POINT",
+        point_type: "POINT",
         attrs: {
           capacity: String(sensor.capacity),
           area_name: sensor.areaName.replaceAll(",", " "),
@@ -211,6 +214,7 @@ const tagLocalBacnetObjects = async (sensor) => {
         uuid: uuidv5(sensor.areaName + ".temperature", EQUIP_NAMESPACE),
         layer: "model",
         attrs: {
+          equipTypeId: EQUIP_TYPE_ID,
           equipRef: sensor.areaName,
           class: "temperature-sensor",
           markers: "temp,sensor,point",
@@ -233,6 +237,7 @@ const tagLocalBacnetObjects = async (sensor) => {
         uuid: uuidv5(sensor.areaName + ".humidity", EQUIP_NAMESPACE),
         layer: "model",
         attrs: {
+          equipTypeId: EQUIP_TYPE_ID,
           equipRef: sensor.areaName,
           class: "humidity-sensor",
           markers: "humidity,sensor,point",
