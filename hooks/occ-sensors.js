@@ -7,7 +7,7 @@ let entityTypeInitialized = false;
 const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 const EQUIP_TYPE_ID = "ccc53d56-bc69-11ee-af99-5b86660b5caf"
 let http;
- 
+
 /**
  * Invoke hook function
  * @param {NormalSdk.InvokeParams} params
@@ -17,14 +17,14 @@ module.exports = async ({ sdk, config }) => {
   AVUITY_ENDPOINT = config.avuityApiUrl;
   http = sdk.http;
   const avuityData = await getAvuityData();
- 
+
   try {
     await ensureEntityTypeCreated();
     await ensureSensorsCreatedAndTagged(avuityData);
     await updateValues(avuityData);
     return InvokeSuccess("Records updated");
   } catch (e) {
-    sdk.event(e.message);
+    sdk.logEvent(e.message);
     console.log(e);
     return InvokeError(e.message);
   }
@@ -32,85 +32,67 @@ module.exports = async ({ sdk, config }) => {
 
 const ensureEntityTypeCreated = async () => {
   if (entityTypeInitialized) return;
-  try {
-    await http.post("/api/v1/equipment/types", {
-      equipmentType: {
-        name: "Avuity Occupancy Sensor",
-        className: "occupancySensor",
-        id: EQUIP_TYPE_ID,       
-        description: 
-          "Any device that senses or detects the occupancy information within a space.",
-        markers: [
-          {
-            name: "occupancySensor",
-            ontologyRequires: true,
-            typeRequires: false,
-          },
-          {
-            name: "equip",
-            ontologyRequires: true,
-            typeRequires: false,
-          },
-        ],
-        points: [],
-        attributes: [],
-        relations: [
-          {
-            name: "siteRef",
-            description: "",
-            defaultValue: "",
-            ontologyRequires: true,
-            typeRequires: false,
-          },
-          {
-            name: "spaceRef",
-            description: "",
-            defaultValue: "",
-            ontologyRequires: true,
-            typeRequires: false,
-          },
-          {
-            name: "systemRef",
-            description: "",
-            defaultValue: "",
-            ontologyRequires: false,
-            typeRequires: false,
-          },
-        ],
-        parents: ["DEV", "OTDEV", "ENVS"],
-        hasChildren: true,
-        icon: "AccountCircle",
-        kind: "EQUIPMENT",
-      },
-    });
-  } catch (e) {
-    // 409 expected if we have already created the entity type
-    if (e.status !== 409) {
-      throw e;
-    }
-  }
-  entityTypeInitialized = true;
-};
+  await http.post("/api/v1/equipment/types", {
+    equipmentType: {
+      name: "Avuity Occupancy Sensor",
+      className: "occupancySensor",
+      id: EQUIP_TYPE_ID,
+      description:
+        "Any device that senses or detects the occupancy information within a space.",
+      markers: [
+        {
+          name: "occupancySensor",
+          ontologyRequires: true,
+          typeRequires: false,
+        },
+        {
+          name: "equip",
+          ontologyRequires: true,
+          typeRequires: false,
+        },
+      ],
+      points: [],
+      attributes: [],
+      relations: [
+        {
+          name: "siteRef",
+          description: "",
+          defaultValue: "",
+          ontologyRequires: true,
+          typeRequires: false,
+        },
+        {
+          name: "spaceRef",
+          description: "",
+          defaultValue: "",
+          ontologyRequires: true,
+          typeRequires: false,
+        },
+        {
+          name: "systemRef",
+          description: "",
+          defaultValue: "",
+          ontologyRequires: false,
+          typeRequires: false,
+        },
+      ],
+      parents: ["DEV", "OTDEV", "ENVS"],
+      hasChildren: true,
+      icon: "AccountCircle",
+      kind: "EQUIPMENT",
+    },
+  }).catch(handleAlreadyExistsResponse);
 
-const selectSensor = (localBacnetObjects, name) => {
-  return localBacnetObjects?.find((s) => {
-    return s.uuid === uuidv5(name + ".occupancy", EQUIP_NAMESPACE);
-  });
+  entityTypeInitialized = true;
 };
 
 
 const ensureSensorsCreatedAndTagged = async (avuityResponse) => {
-  let existingSensors = await getLocalBacnetObjects();
-
   for await (const key of Object.keys(avuityResponse.items)) {
     const current = avuityResponse.items[key];
-    if (!selectSensor(existingSensors, current.areaName)) {
-      const localBacnetObjects = await createLocalBacnetObjects(current);
-      await createEquipForSensor(current, localBacnetObjects);
-      await tagLocalBacnetObjects(current, localBacnetObjects);
-    } else {
-      console.log(`Local Object for: ${current.areaName} already created`);
-    }
+    const localBacnetObjects = await createLocalBacnetObjects(current);
+    await createEquipForSensor(current, localBacnetObjects);
+    await tagLocalBacnetObjects(current, localBacnetObjects);
   }
 };
 
@@ -170,7 +152,7 @@ const createEquipForSensor = async (sensor) => {
         uuid: uuidv5(sensor.areaName + ".equip", EQUIP_NAMESPACE),
         layer: "model",
         point_type: 4,
-        name: sensor.areaName,       
+        name: sensor.areaName,
         attrs: {
           equipTypeId: EQUIP_TYPE_ID,
           type: "Avuity Occupancy Sensor",
@@ -298,7 +280,8 @@ const createLocalBacnetObjects = async (area) => {
         },
       },
     ],
-  });
+  }).catch(handleAlreadyExistsResponse);
+
   await http.post("/api/v1/bacnet/local", {
     uuid: uuidv5(area.areaName + ".humidity", EQUIP_NAMESPACE),
     objectId: {
@@ -325,7 +308,7 @@ const createLocalBacnetObjects = async (area) => {
         },
       },
     ],
-  });
+  }).catch(handleAlreadyExistsResponse);
   await http.post("/api/v1/bacnet/local", {
     uuid: uuidv5(area.areaName + ".temperature", EQUIP_NAMESPACE),
     objectId: {
@@ -352,8 +335,15 @@ const createLocalBacnetObjects = async (area) => {
         },
       },
     ],
-  });
+  }).catch(handleAlreadyExistsResponse);
 };
+
+const handleAlreadyExistsResponse = (e) => {
+  if (e.status === 409) {
+    return;
+  };
+  throw e;
+}
 
 const getAvuityData = async () => {
   const response = await http.get(AVUITY_ENDPOINT);
