@@ -1,0 +1,26 @@
+{
+  "name": "Avuity Occupancy Sensors",
+  "description": "Avuity Integration",
+  "layer": {
+    "name": "avuity",
+    "indexed": true,
+    "components": [
+      "area_name",
+      "capacity",
+      "floor_name",
+      "building_name",
+      "location_name"
+    ],
+    "component_options": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
+    "component_types": ["TAG", "NUMERIC", "TAG", "TAG", "TAG"],
+    "default_display_attrs" : ["area_name", "floor_name", "building_name"],
+    "default_grouping_attrs" : ["building_name", "floor_name"]
+  },
+  "options": [
+    {
+      "name": "avuityApiUrl",
+      "option_type": "TYPE_STRING",
+      "required": true
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "invoke": {},
+  "prepare": {
+    "hook": {
+      "points": {
+        "layer": "default",
+        "query": { "field": { "property": "class", "text": "OCCSNS" } }
+      }
+    }
+  }
+}
