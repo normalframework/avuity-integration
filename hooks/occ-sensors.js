@@ -3,7 +3,6 @@ const { InvokeSuccess, InvokeError } = NormalSdk;
 const { v5: uuidv5 } = require("uuid");
 
 AVUITY_ENDPOINT = "";
-let entityTypeInitialized = false;
 const EQUIP_NAMESPACE = "acc5ab09-a5ad-4bc0-8b2c-3d5cabc253fb";
 const EQUIP_TYPE_ID = "ccc53d56-bc69-11ee-af99-5b86660b5caf"
 let http;
@@ -31,7 +30,6 @@ module.exports = async ({ sdk, config }) => {
 };
 
 const ensureEntityTypeCreated = async () => {
-  if (entityTypeInitialized) return;
   await http.post("/api/v1/equipment/types", {
     equipmentType: {
       name: "Avuity Occupancy Sensor",
