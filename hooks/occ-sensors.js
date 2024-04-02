@@ -344,6 +344,6 @@ const handleAlreadyExistsResponse = (e) => {
 }
 
 const getAvuityData = async () => {
-  const response = await http.get(AVUITY_ENDPOINT);
-  return response.data;
+  const res = await fetch(AVUITY_ENDPOINT)
+  return await res.json()
 };
