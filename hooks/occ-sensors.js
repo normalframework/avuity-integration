@@ -21,7 +21,7 @@ module.exports = async ({ sdk, config }) => {
     await ensureEntityTypeCreated();
     await ensureSensorsCreatedAndTagged(avuityData);
     await updateValues(avuityData);
-    return InvokeSuccess("Records updated");
+    return InvokeSuccess(`${Object.keys(avuityData.items).length} records updated`);
   } catch (e) {
     sdk.logEvent(e.message);
     console.log(e);
@@ -182,6 +182,9 @@ const tagLocalBacnetObjects = async (sensor) => {
         layer: "avuity",
         name: sensor.areaName + " Occupancy",
         point_type: "POINT",
+        period: {
+          "seconds": 300
+        },
         attrs: {
           capacity: String(sensor.capacity),
           area_name: sensor.areaName.replaceAll(",", " "),
@@ -205,6 +208,9 @@ const tagLocalBacnetObjects = async (sensor) => {
         layer: "avuity",
         name: sensor.areaName + " Temperature",
         type: "POINT",
+        period: {
+          "seconds": 300
+        },
         attrs: {
           capacity: String(sensor.capacity),
           area_name: sensor.areaName.replaceAll(",", " "),
@@ -228,6 +234,9 @@ const tagLocalBacnetObjects = async (sensor) => {
         layer: "avuity",
         name: sensor.areaName + " Humidity",
         type: "POINT",
+        period: {
+          "seconds": 300
+        },
         attrs: {
           capacity: String(sensor.capacity),
           area_name: sensor.areaName.replaceAll(",", " "),
