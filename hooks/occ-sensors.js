@@ -145,6 +145,7 @@ const updateSensorValues = async (item) => {
 
 const createEquipForSensor = async (sensor) => {
   const result = await http.post("/api/v1/point/points", {
+    is_async: true,
     points: [
       {
         uuid: uuidv5(sensor.areaName + ".equip", EQUIP_NAMESPACE),
@@ -166,6 +167,7 @@ const createEquipForSensor = async (sensor) => {
 
 const tagLocalBacnetObjects = async (sensor) => {
   await http.post("/api/v1/point/points", {
+    is_async: true,
     points: [
       {
         uuid: uuidv5(sensor.areaName + ".occupancy", EQUIP_NAMESPACE),
