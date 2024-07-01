@@ -1,0 +1,16 @@
+{
+  "applicationId": "avuity-integration",
+  "hook": {
+    "id": "56a8fd78-092d-11ee-be56-0242ac120002",
+    "name": "set-occ-mode",
+    "entryPoint": "hooks/set-occ-mode.js",
+    "mode": 3,
+    "schedule": {
+      "rrule": "RRULE:FREQ=MINUTELY;INTERVAL=5"
+    },
+    "points": {
+      "layer": "default",
+      "query": { "field": { "property": "class", "text": "OCCSNS" } }
+    }
+  }
+}
